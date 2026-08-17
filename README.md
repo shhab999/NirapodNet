@@ -1,12 +1,12 @@
 # NirapodNet
 
-**A Secure, Privacy-First Network Monitoring & Anomaly Detection Platform**
+**Offline-first resilient disaster communication and emergency-response infrastructure**
 
 ---
 
 ## Executive Summary
 
-NirapodNet is an open-source network security platform designed to provide real-time network monitoring, anomaly detection, and threat intelligence for organizations of all sizes. Built with a privacy-first architecture, it enables security teams to detect, analyze, and respond to network threats without compromising sensitive data.
+NirapodNet is an open-source network security platform designed to provide real-time network monitoring, anomaly detection, and threat intelligence for organisations of all sizes. Built with a privacy-first architecture, it enables security teams to detect, analyze, and respond to network threats without compromising sensitive data.
 
 ## Core Problem Being Solved
 

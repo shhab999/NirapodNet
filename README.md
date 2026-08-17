@@ -54,7 +54,7 @@ NirapodNet addresses these gaps by providing a **self-hosted, open-source, modul
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/nirapodnet.git
+git clone https://github.com/shhab999/NirapodNet
 cd nirapodnet
 
 # Start with Docker Compose (development)

@@ -643,4 +643,9 @@ This staged approach keeps the system testable, measurable, and resilient while 
 
 ## License
 
-No license is specified in the current project plan. Add an appropriate open-source or proprietary license before public distribution.
+NirapodNet is licensed under the **MIT License**.
+
+See the [`LICENSE`](LICENSE) file for the complete license text.
+
+Copyright (c) 2026 NirapodNet Contributors
+

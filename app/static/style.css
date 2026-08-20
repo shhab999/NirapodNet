@@ -1,0 +1,56 @@
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f4f4f4;
+}
+
+.container {
+    max-width: 700px;
+    margin: 40px auto;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.messages {
+    height: 350px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 12px;
+    overflow-y: auto;
+    background: #fafafa;
+}
+
+.message {
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    background: #e7f2ff;
+}
+
+.system {
+    background: #e8ffe8;
+}
+
+.composer {
+    display: flex;
+    margin-top: 15px;
+    gap: 10px;
+}
+
+input {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+}
+
+button {
+    padding: 12px 20px;
+    font-size: 16px;
+    cursor: pointer;
+}

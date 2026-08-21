@@ -16,25 +16,40 @@
         <p>Offline Emergency Communication System</p>
     </header>
 
-    <section class="messages" id="messages">
-        <div class="message system">
-            System online.
-        </div>
-    </section>
-
-    <section class="composer">
-
+    <div id="loginBox">
         <input
-            type="text"
-            id="messageInput"
-            placeholder="Type a message..."
-        >
+            id="usernameInput"
+            placeholder="Enter username"
+        />
 
-        <button id="sendButton">
-            Send
+
+        <button id="joinButton">
+            Join Network
         </button>
+    </div>
 
-    </section>
+
+    <div id="chatBox" style="display:none;">
+        <section class="messages" id="messages">
+            <div class="message system">
+                System online.
+            </div>
+        </section>
+
+        <section class="composer">
+
+            <input
+                type="text"
+                id="messageInput"
+                placeholder="Type a message..."
+            >
+
+            <button id="sendButton">
+                Send
+            </button>
+
+        </section>
+    </div>
 
 </div>
 

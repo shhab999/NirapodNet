@@ -30,7 +30,15 @@ header {
     padding: 8px 10px;
     margin-bottom: 8px;
     border-radius: 6px;
-    background: #e7f2ff;
+}
+
+.mine {
+    background: #dbeafe;
+    text-align: right;
+}
+
+.other {
+    background: #f3f4f6;
 }
 
 .system {

@@ -5,7 +5,13 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
+from .models import Base
 from . import schemas, crud
+
+from fastapi import WebSocket, WebSocketDisconnect
+from .websocket import manager
+from .database import SessionLocal
+from .models import Message
 
 app = FastAPI(title="NirapodNet")
 
@@ -76,3 +82,37 @@ def create_message(
 @app.get("/messages", response_model=list[schemas.MessageResponse])
 def list_messages(db: Session = Depends(get_db)):
     return crud.get_messages(db)
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+
+    await manager.connect(websocket)
+
+    db = SessionLocal()
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+
+            message = Message(
+                sender_id=data["sender_id"],
+                content=data["content"]
+            )
+
+            db.add(message)
+            db.commit()
+            db.refresh(message)
+
+            await manager.broadcast({
+                "id": message.id,
+                "sender": message.sender.username,
+                "sender_id": message.sender.id,
+                "content": message.content,
+                "timestamp": message.timestamp.isoformat()
+            })
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+    finally:
+        db.close()

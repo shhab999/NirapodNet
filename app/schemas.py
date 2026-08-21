@@ -22,6 +22,7 @@ class MessageCreate(BaseModel):
 class MessageResponse(BaseModel):
     id: int
     sender_id: int
+    sender: str
     content: str
     timestamp: datetime
 

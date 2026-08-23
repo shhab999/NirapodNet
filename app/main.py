@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from .database import Base, engine, get_db
+from .database import engine, get_db
 from .models import Base
 from . import schemas, crud
 
@@ -104,6 +104,7 @@ async def websocket_endpoint(websocket: WebSocket):
             db.refresh(message)
 
             await manager.broadcast({
+                "client_id": data.get("client_id"),
                 "id": message.id,
                 "sender": message.sender.username,
                 "sender_id": message.sender.id,

@@ -62,3 +62,39 @@ button {
     font-size: 16px;
     cursor: pointer;
 }
+
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    margin-bottom: 15px;
+    padding: 10px;
+
+    border-radius: 8px;
+    background: #f5f5f5;
+}
+
+.online {
+    color: green;
+    font-weight: bold;
+}
+
+.offline {
+    color: red;
+    font-weight: bold;
+}
+
+.delivery {
+    margin-top: 5px;
+    font-size: 12px;
+    color: gray;
+}
+
+.pending {
+    background: #FEF3C7;
+}
+
+.pending .delivery {
+    color: #B45309;
+}

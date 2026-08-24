@@ -140,13 +140,21 @@ function updateQueueCount() {
     document.getElementById("queueCount").textContent = `Pending: ${getPendingMessages().length}`;
 }
 
+function generateId() {
+    if (window.crypto && window.crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    // Fallback for non-secure contexts (like HTTP network IPs)
+    return 'id-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+}
+
 function sendMessage() {
 
     const text = input.value.trim();
     if (!text) return;
 
     const message = {
-        client_id: crypto.randomUUID(),
+        client_id: generateId(),
         sender_id: currentUser.id,
         sender: currentUser.username,
         content: text,

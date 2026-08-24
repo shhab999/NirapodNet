@@ -98,3 +98,13 @@ button {
 .pending .delivery {
     color: #B45309;
 }
+.pending {
+    background: #fff3cd;
+    border-left: 4px solid orange;
+}
+
+.delivery {
+    font-size: 12px;
+    color: #996500;
+    margin-top: 4px;
+}

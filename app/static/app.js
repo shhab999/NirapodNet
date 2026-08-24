@@ -19,15 +19,21 @@ function savePendingMessages(queue) {
 }
 
 function connectWebSocket() {
+    sendButton.disabled = true;
     socket = new WebSocket(`ws://${window.location.host}/ws`);
 
     const networkStatus = document.getElementById("networkStatus");
 
     socket.onopen = () => {
+        console.log("websocket connected");
+
         networkStatus.textContent = "🟢 Connected";
         networkStatus.className = "online";
 
         syncPendingMessages();
+        updateQueueCount();
+
+        sendButton.disabled = false;
     };
 
     socket.onclose = () => {
@@ -43,10 +49,11 @@ function connectWebSocket() {
     };
 
     socket.onmessage = (event) => {
+
         const message = JSON.parse(event.data);
-        if (message.client_id) {
-            removePending(message.client_id);
-        }
+
+        removePending(message.client_id);
+
         addMessage(message);
     };
 }
@@ -95,36 +102,46 @@ function showPendingMessage(message) {
 }
 
 function syncPendingMessages() {
-    const queue = getPendingMessages();
 
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    if (queue.length === 0) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN)
+        return;
+
+    const queue = getPendingMessages();
 
     queue.forEach(message => {
         socket.send(JSON.stringify(message));
     });
-
-    // Queue is cleared only after each message is confirmed in removePending()
 }
 
 function removePending(clientId) {
-    let queue = getPendingMessages();
-    queue = queue.filter(m => m.client_id !== clientId);
+
+    if (!clientId) return;
+
+    const pending = document.querySelector(
+        `[data-client-id="${clientId}"]`
+    );
+
+    if (pending) {
+        pending.remove();
+    }
+
+    const queue = getPendingMessages().filter(
+        msg => msg.client_id !== clientId
+    );
+
     savePendingMessages(queue);
 
     updateQueueCount();
-
-    const pendingDiv = messages.querySelector(`.pending[data-client-id="${clientId}"]`);
-    if (pendingDiv) {
-        pendingDiv.remove();
-    }
 }
 
 function updateQueueCount() {
+    const count = getPendingMessages().length;
+
     document.getElementById("queueCount").textContent = `Pending: ${getPendingMessages().length}`;
 }
 
 function sendMessage() {
+
     const text = input.value.trim();
     if (!text) return;
 
@@ -142,7 +159,6 @@ function sendMessage() {
         const queue = getPendingMessages();
         queue.push(message);
         savePendingMessages(queue);
-
         showPendingMessage(message);
         updateQueueCount();
     }

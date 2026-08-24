@@ -85,7 +85,6 @@ def list_messages(db: Session = Depends(get_db)):
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-
     await manager.connect(websocket)
 
     db = SessionLocal()
@@ -96,9 +95,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
             message = Message(
                 sender_id=data["sender_id"],
-                content=data["content"]
+                content=data["content"],
             )
-
             db.add(message)
             db.commit()
             db.refresh(message)
@@ -106,14 +104,12 @@ async def websocket_endpoint(websocket: WebSocket):
             await manager.broadcast({
                 "client_id": data.get("client_id"),
                 "id": message.id,
-                "sender": message.sender.username,
-                "sender_id": message.sender.id,
+                "sender": message.sender.username if message.sender else None,
+                "sender_id": message.sender_id,
                 "content": message.content,
-                "timestamp": message.timestamp.isoformat()
+                "timestamp": message.timestamp.isoformat(),
             })
-
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-
     finally:
         db.close()

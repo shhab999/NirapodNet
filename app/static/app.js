@@ -19,7 +19,7 @@ function savePendingMessages(queue) {
 }
 
 function connectWebSocket() {
-    sendButton.disabled = true;
+
     socket = new WebSocket(`ws://${window.location.host}/ws`);
 
     const networkStatus = document.getElementById("networkStatus");

@@ -1,5 +1,4 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -20,7 +19,11 @@ class Message(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    sender_id = Column(Integer, ForeignKey("users.id"))
+    sender_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
 
     content = Column(String, nullable=False)
 

@@ -11,7 +11,7 @@ from . import schemas, crud
 from fastapi import WebSocket, WebSocketDisconnect
 from .websocket import manager
 from .database import SessionLocal
-from .models import Message
+from .models import Message, User
 
 app = FastAPI(title="NirapodNet")
 
@@ -93,13 +93,60 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             data = await websocket.receive_json()
 
-            message = Message(
-                sender_id=data["sender_id"],
-                content=data["content"],
+            client_id = data.get("client_id")
+            content = data.get("content")
+            sender_id = data.get("sender_id")
+
+            if not client_id or not content or not sender_id:
+                await websocket.send_json({
+                    "type": "error",
+                    "error": "Invalid message"
+                })
+                continue
+
+            sender = (
+                db.query(User)
+                .filter(User.id == sender_id)
+                .first()
             )
+
+            if sender is None:
+                await websocket.send_json({
+                    "type": "error",
+                    "client_id": client_id,
+                    "error": "Invalid sender"
+                })
+                continue
+            
+            existing = (
+                db.query(Message)
+                .filter(Message.client_id == client_id)
+                .first()
+            )
+
+            if existing:
+                await websocket.send_json({
+                    "type": "ack",
+                    "client_id": data.get("client_id"),
+                    "message_id": existing.id,
+                })
+                continue
+
+            message = Message(
+                client_id=client_id,
+                sender_id=sender_id,
+                content=content,
+            )
+
             db.add(message)
             db.commit()
             db.refresh(message)
+
+            await websocket.send.json({
+                "type": "ack",
+                "client_id": data.get("client_id"),
+                "message_id": message.id,
+            })
 
             await manager.broadcast({
                 "client_id": data.get("client_id"),

@@ -92,19 +92,10 @@ button {
 }
 
 .pending {
-    background: #FEF3C7;
-}
-
-.pending .delivery {
-    color: #B45309;
-}
-.pending {
     background: #fff3cd;
     border-left: 4px solid orange;
 }
 
-.delivery {
-    font-size: 12px;
+.pending .delivery {
     color: #996500;
-    margin-top: 4px;
 }

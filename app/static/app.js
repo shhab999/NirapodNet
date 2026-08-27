@@ -5,6 +5,7 @@ const joinButton = document.getElementById("joinButton");
 
 let currentUser = null;
 let socket = null;
+let reconnectTimer = null;
 
 const displayedMessages = new Set();
 
@@ -40,6 +41,8 @@ function connectWebSocket() {
         networkStatus.textContent = "🔴 Offline";
         networkStatus.className = "offline";
 
+        sendButton.disabled = true;
+
         reconnect();
     };
 
@@ -50,16 +53,45 @@ function connectWebSocket() {
 
     socket.onmessage = (event) => {
 
-        const message = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
 
-        removePending(message.client_id);
+        if (data.type === "ack") {
 
-        addMessage(message);
+            removePending(data.client_id);
+            return;
+        }
+
+        if (data.type === "message") {
+
+            addMessage(data);
+            return;
+        }
+
+        if (data.type === "error") {
+
+            console.error("Server error:", data.error);
+
+            if (data.client_id) {
+                showPendingMessage({
+                    client_id: data.client_id,
+                    sender: currentUser.username,
+                    content: data.error
+                });
+            }
+        }
     };
 }
 
 function reconnect() {
-    setTimeout(() => {
+
+    if (reconnectTimer) {
+        return;
+    }
+
+    reconnectTimer = setTimeout(() => {
+
+        reconnectTimer = null;
+
         if (!socket || socket.readyState === WebSocket.CLOSED) {
             connectWebSocket();
         }
@@ -67,10 +99,24 @@ function reconnect() {
 }
 
 function addMessage(message) {
-    if (message.id && displayedMessages.has(message.id)) return;
-    if (message.id) displayedMessages.add(message.id);
+    if (message.id && displayedMessages.has(message.id)) {
+        return;
+    }
+
+    if (message.id) {
+        displayedMessages.add(message.id);
+    }
+
+    const pending = document.querySelector(
+        `[data-client-id="${message.client_id}"]`
+    );
+
+    if (pending) {
+        pending.remove();
+    }
 
     const div = document.createElement("div");
+
     div.className = "message";
 
     if (message.sender_id === currentUser.id) {
@@ -79,38 +125,112 @@ function addMessage(message) {
         div.classList.add("other");
     }
 
-    div.innerHTML = `
-        <strong>${message.sender}</strong><br>
-        ${message.content}
-        <div class="delivery">Delivered</div>
-    `;
+    const sender = document.createElement("strong");
+    sender.textContent = message.sender;
+
+    const content = document.createElement("div");
+    content.textContent = message.content;
+
+    const status = document.createElement("div");
+    status.className = "delivery";
+    status.textContent = "Delivered";
+
+    div.appendChild(sender);
+    div.appendChild(content);
+    div.appendChild(status);
+
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
 }
 
 function showPendingMessage(message) {
+    const existing = document.querySelector(
+        `[data-client-id="${message.client_id}"]`
+    );
+
+    if (existing) {
+        return;
+    }
+
     const div = document.createElement("div");
+
     div.className = "message pending";
     div.dataset.clientId = message.client_id;
-    div.innerHTML = `
-        <strong>${message.sender}</strong><br>
-        ${message.content}
-        <div class="delivery">Pending</div>
-    `;
+
+    const sender = document.createElement("strong");
+    sender.textContent = message.sender;
+
+    const content = document.createElement("div");
+    content.textContent = message.content;
+
+    const status = document.createElement("div");
+    status.className = "delivery";
+    status.textContent = "Pending";
+
+    div.appendChild(sender);
+    div.appendChild(content);
+    div.appendChild(status);
+
     messages.appendChild(div);
+
     messages.scrollTop = messages.scrollHeight;
 }
 
-function syncPendingMessages() {
-
-    if (!socket || socket.readyState !== WebSocket.OPEN)
-        return;
+function restorePendingMessages() {
 
     const queue = getPendingMessages();
 
     queue.forEach(message => {
-        socket.send(JSON.stringify(message));
+
+        showPendingMessage(message);
+
     });
+
+    updateQueueCount();
+}
+
+async function loadMessages() {
+
+    try {
+
+        const response = await fetch("/messages");
+
+        if (!response.ok) {
+            throw new Error("Failed to load messages");
+        }
+
+        const data = await response.json();
+
+        messages.innerHTML = "";
+
+        data.forEach(addMessage);
+
+        restorePendingMessages();
+
+    } catch (error) {
+
+        console.error("Message loading failed:", error);
+
+    }
+}
+
+function trySendPendingMessages() {
+
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        return;
+    }
+
+    const queue = getPendingMessages();
+
+    for (const message of queue) {
+
+        socket.send(JSON.stringify(message));
+
+    }
+}
+
+function syncPendingMessages() {
+    trySendPendingMessages();
 }
 
 function removePending(clientId) {
@@ -137,7 +257,8 @@ function removePending(clientId) {
 function updateQueueCount() {
     const count = getPendingMessages().length;
 
-    document.getElementById("queueCount").textContent = `Pending: ${getPendingMessages().length}`;
+    document.getElementById("queueCount").textContent =
+        `Pending: ${count}`;
 }
 
 function generateId() {
@@ -161,24 +282,15 @@ function sendMessage() {
         created_at: new Date().toISOString()
     };
 
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify(message));
-    } else {
-        const queue = getPendingMessages();
-        queue.push(message);
-        savePendingMessages(queue);
-        showPendingMessage(message);
-        updateQueueCount();
-    }
+    const queue = getPendingMessages();
+    queue.push(message);
+    savePendingMessages(queue);
+    showPendingMessage(message);
+    updateQueueCount();
 
     input.value = "";
-}
+    trySendPendingMessages();
 
-async function loadMessages() {
-    const response = await fetch("/messages");
-    const data = await response.json();
-    messages.innerHTML = "";
-    data.forEach(addMessage);
 }
 
 async function joinNetwork() {

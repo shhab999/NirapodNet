@@ -19,14 +19,11 @@ class Message(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    sender_id = Column(
-        Integer,
-        ForeignKey("users.id"),
-        nullable=False
-    )
+    client_id = Column(String, nullable=False, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     content = Column(String, nullable=False)
 
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     sender = relationship("User", back_populates="messages")

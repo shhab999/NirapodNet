@@ -142,16 +142,17 @@ async def websocket_endpoint(websocket: WebSocket):
             db.commit()
             db.refresh(message)
 
-            await websocket.send.json({
+            await websocket.send_json({
                 "type": "ack",
-                "client_id": data.get("client_id"),
+                "client_id": client_id,
                 "message_id": message.id,
             })
 
             await manager.broadcast({
-                "client_id": data.get("client_id"),
+                "type": "message",
+                "client_id": client_id,
                 "id": message.id,
-                "sender": message.sender.username if message.sender else None,
+                "sender": sender.username,
                 "sender_id": message.sender_id,
                 "content": message.content,
                 "timestamp": message.timestamp.isoformat(),

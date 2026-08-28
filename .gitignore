@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local Git recovery backup
+.git-broken-backup/
+
+# Local database
+nirapodnet.db

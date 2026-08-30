@@ -1,3 +1,5 @@
+from email.mime import message
+
 from fastapi import FastAPI, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -81,7 +83,24 @@ def create_message(
 
 @app.get("/messages", response_model=list[schemas.MessageResponse])
 def list_messages(db: Session = Depends(get_db)):
-    return crud.get_messages(db)
+
+    messages = (
+        db.query(Message)
+        .order_by(Message.timestamp.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": message.id,
+            "client_id": message.client_id,
+            "sender_id": message.sender_id,
+            "sender": message.sender.username,
+            "content": message.content,
+            "timestamp": message.timestamp.isoformat(),
+        }
+        for message in messages
+    ]
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -133,9 +152,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 continue
 
             message = Message(
-                client_id=client_id,
-                sender_id=sender_id,
-                content=content,
+                client_id=data["client_id"],
+                sender_id=data["sender_id"],
+                content=data["content"],
             )
 
             db.add(message)

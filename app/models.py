@@ -19,7 +19,7 @@ class Message(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    client_id = Column(String, nullable=False, index=True)
+    client_id = Column(String, unique=True, nullable=False, index=True)
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     content = Column(String, nullable=False)

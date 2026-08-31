@@ -1,5 +1,4 @@
-from email.mime import message
-
+from pathlib import Path
 from fastapi import FastAPI, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,17 +14,21 @@ from .websocket import manager
 from .database import SessionLocal
 from .models import Message, User
 
+BASE_DIR = Path(__file__).resolve().parent
+
 app = FastAPI(title="NirapodNet")
 
 # Create SQLite tables on startup
 Base.metadata.create_all(bind=engine)
 
 # Static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory=BASE_DIR / "static"),
+    name="static"
+)
 
-# HTML templates
-templates = Jinja2Templates(directory="app/templates")
-
+templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 # -----------------------
 # HTML Pages
@@ -86,7 +89,7 @@ def list_messages(db: Session = Depends(get_db)):
 
     messages = (
         db.query(Message)
-        .order_by(Message.timestamp.desc())
+        .order_by(Message.timestamp.asc())
         .all()
     )
 
@@ -102,13 +105,23 @@ def list_messages(db: Session = Depends(get_db)):
         for message in messages
     ]
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: int):
     db = SessionLocal()
 
     try:
+        user = (
+            db.query(User)
+            .filter(User.id == user_id)
+            .first()
+        )
+
+        if user is None:
+            await websocket.close(code=1008)
+            return
+
+        await manager.connect(websocket, user_id)
+
         while True:
             data = await websocket.receive_json()
 
@@ -120,6 +133,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_json({
                     "type": "error",
                     "error": "Invalid message"
+                })
+                continue
+
+            if sender_id != user_id:
+                await websocket.send_json({
+                    "type": "error",
+                    "client_id": client_id,
+                    "error": "Sender identity mismatch"
                 })
                 continue
 
@@ -139,22 +160,29 @@ async def websocket_endpoint(websocket: WebSocket):
             
             existing = (
                 db.query(Message)
-                .filter(Message.client_id == client_id)
+                .filter(
+                    Message.client_id == client_id,
+                    Message.sender_id == sender_id,
+                )
                 .first()
             )
 
             if existing:
                 await websocket.send_json({
                     "type": "ack",
-                    "client_id": data.get("client_id"),
+                    "client_id": client_id,
                     "message_id": existing.id,
+                    "sender_id": existing.sender_id,
+                    "sender": sender.username,
+                    "content": existing.content,
+                    "timestamp": existing.timestamp.isoformat(),
                 })
                 continue
 
             message = Message(
-                client_id=data["client_id"],
-                sender_id=data["sender_id"],
-                content=data["content"],
+                client_id=client_id,
+                sender_id=sender_id,
+                content=content,
             )
 
             db.add(message)
@@ -165,9 +193,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 "type": "ack",
                 "client_id": client_id,
                 "message_id": message.id,
+                "sender_id": message.sender_id,
+                "sender": sender.username,
+                "content": message.content,
+                "timestamp": message.timestamp.isoformat(),
             })
 
-            await manager.broadcast({
+            await manager.broadcast(
+                {
                 "type": "message",
                 "client_id": client_id,
                 "id": message.id,
@@ -175,7 +208,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 "sender_id": message.sender_id,
                 "content": message.content,
                 "timestamp": message.timestamp.isoformat(),
-            })
+            },
+            exclude=websocket
+        )
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     finally:

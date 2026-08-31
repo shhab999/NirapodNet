@@ -2,12 +2,24 @@ const input = document.getElementById("messageInput");
 const sendButton = document.getElementById("sendButton");
 const messages = document.getElementById("messages");
 const joinButton = document.getElementById("joinButton");
+const errorBanner = document.getElementById("errorBanner");
+
+function showError(message) {
+    errorBanner.textContent = message;
+    errorBanner.style.display = "block";
+}
+
+function clearError() {
+    errorBanner.textContent = "";
+    errorBanner.style.display = "none";
+}
 
 let currentUser = null;
 let socket = null;
 let reconnectTimer = null;
 
 const displayedMessages = new Set();
+const displayedClientIds = new Set();
 
 const QUEUE_KEY = "nirapodnet_pending_messages";
 
@@ -21,11 +33,19 @@ function savePendingMessages(queue) {
 
 function connectWebSocket() {
 
-    socket = new WebSocket(`ws://${window.location.host}/ws`);
+    const protocol = window.location.protocol === "https:"
+        ? "wss:"
+        : "ws:";
+
+    socket = new WebSocket(
+        `${protocol}//${window.location.host}/ws/${currentUser.id}`
+    );
 
     const networkStatus = document.getElementById("networkStatus");
 
     socket.onopen = () => {
+        clearError();
+
         console.log("websocket connected");
 
         networkStatus.textContent = "🟢 Connected";
@@ -41,14 +61,13 @@ function connectWebSocket() {
         networkStatus.textContent = "🔴 Offline";
         networkStatus.className = "offline";
 
-        sendButton.disabled = true;
-
         reconnect();
     };
 
     socket.onerror = () => {
         networkStatus.textContent = "🔴 Connection Error";
         networkStatus.className = "offline";
+        showError("WebSocket connection error. Attempting to reconnect...");
     };
 
     socket.onmessage = (event) => {
@@ -58,6 +77,15 @@ function connectWebSocket() {
         if (data.type === "ack") {
 
             removePending(data.client_id);
+
+            addMessage({
+                id: data.message_id,
+                client_id: data.client_id,
+                sender_id: data.sender_id,
+                sender: data.sender,
+                content: data.content,
+                timestamp: data.timestamp
+            });
             return;
         }
 
@@ -99,12 +127,19 @@ function reconnect() {
 }
 
 function addMessage(message) {
-    if (message.id && displayedMessages.has(message.id)) {
+    if (
+        (message.id && displayedMessages.has(message.id)) ||
+        (message.client_id && displayedClientIds.has(message.client_id))
+    ) {
         return;
     }
 
     if (message.id) {
         displayedMessages.add(message.id);
+    }
+
+    if (message.client_id) {
+        displayedClientIds.add(message.client_id);
     }
 
     const pending = document.querySelector(
@@ -277,9 +312,7 @@ function sendMessage() {
     const message = {
         client_id: generateId(),
         sender_id: currentUser.id,
-        sender: currentUser.username,
-        content: text,
-        created_at: new Date().toISOString()
+        content: text
     };
 
     const queue = getPendingMessages();
@@ -294,27 +327,58 @@ function sendMessage() {
 }
 
 async function joinNetwork() {
+    clearError();
+
     const username = document.getElementById("usernameInput").value.trim();
-    if (!username) return;
 
-    const response = await fetch("/users", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ username })
-    });
+    if (username.length < 3 || username.length > 50) {
+        showError("Username must be between 3 and 50 characters.");
+        return;
+    }
 
-    currentUser = await response.json();
+    try {
+        const response = await fetch("/users", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ username })
+        });
 
-    document.getElementById("userLabel").textContent = `Logged in as ${currentUser.username}`;
+        if (!response.ok) {
+    let message = "Unable to join the network.";
 
-    document.getElementById("loginBox").style.display = "none";
-    document.getElementById("chatBox").style.display = "block";
+    try {
+        const error = await response.json();
 
-    connectWebSocket();
-    loadMessages();
-    updateQueueCount();
+        if (Array.isArray(error.detail)) {
+            message = error.detail
+                .map(item => item.msg)
+                .join(", ");
+        } else if (error.detail) {
+            message = error.detail;
+        }
+    } catch {
+        // Keep default error message
+    }
+
+    throw new Error(message);
+        }
+
+        currentUser = await response.json();
+
+        document.getElementById("userLabel").textContent = `Logged in as ${currentUser.username}`;
+
+        document.getElementById("loginBox").style.display = "none";
+        document.getElementById("chatBox").style.display = "block";
+
+        connectWebSocket();
+        loadMessages();
+        updateQueueCount();
+    } catch (error) {
+        console.error(error);
+        showError(error.message || "Unable to join the network.");
+    }
 }
 
 sendButton.addEventListener("click", sendMessage);

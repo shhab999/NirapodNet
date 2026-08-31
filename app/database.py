@@ -1,12 +1,20 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+import os
 
-DATABASE_URL = "sqlite:///./nirapodnet.db"
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
+
+DATABASE_URL = os.environ.get(
+    "NIRAPODNET_DB",
+    "sqlite:///./nirapodnet.db"
+)
+
 
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False}
 )
+
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -14,7 +22,9 @@ SessionLocal = sessionmaker(
     bind=engine
 )
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 def get_db():

@@ -640,6 +640,69 @@ Only after the core is operational and experimentally validated should the proje
 This staged approach keeps the system testable, measurable, and resilient while reducing unnecessary complexity during early development.
 
 ---
+## Run on LAN
+
+NirapodNet can run on a local network without Internet access.
+
+### 1. Start the server
+
+Activate the virtual environment, then run:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+### 2. Find the host computer's LAN IP
+
+On Windows, run:
+
+```powershell
+ipconfig
+```
+
+Find the active network adapter and note its `IPv4 Address`, for example:
+
+```text
+192.168.1.10
+```
+
+### 3. Connect another device
+
+Make sure the phone or second computer is connected to the same Wi-Fi/LAN.
+
+Open:
+
+```text
+http://192.168.1.10:8000
+```
+
+Replace `192.168.1.10` with the actual LAN IP of the computer running NirapodNet.
+
+### 4. Test offline operation
+
+First confirm that both devices can open NirapodNet while connected to the same local network.
+
+Then disconnect the LAN from the Internet while keeping the local network available.
+
+NirapodNet should continue to work because the application server, database, HTML, CSS, JavaScript, and WebSocket communication are all local to the LAN.
+
+### 5. Two-device messaging test
+
+Open NirapodNet on two devices.
+
+Join with different usernames.
+
+Send a message from Device A.
+
+Verify that:
+
+* Device A receives an ACK.
+* Device B receives the message.
+* The message appears with the correct sender.
+* Reloading the page preserves message order.
+* Pending messages are retried after reconnecting.
+
+---
 
 ## License
 

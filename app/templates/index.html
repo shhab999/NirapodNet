@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -26,10 +25,16 @@
         <p>Offline Emergency Communication System</p>
     </header>
 
+    <div id="errorBanner" role="alert" aria-live="polite" style="display:none;"></div>
+
     <div id="loginBox">
         <input
             id="usernameInput"
+            type="text"
             placeholder="Enter username"
+            autocomplete="username"
+            minlength="3"
+            maxlength="50"
         />
 
 

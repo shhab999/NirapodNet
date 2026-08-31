@@ -12,16 +12,21 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
+#-----------------
+# Message Schemas
+#-----------------
 
 class MessageCreate(BaseModel):
     client_id: str = Field(min_length=1, max_length=100)
+    sender_id: int
     content: str = Field(min_length=1, max_length=2000)
 
 
 class MessageResponse(BaseModel):
     id: int
     client_id: str = Field(min_length=1, max_length=100)
+    sender_id: int
+    sender: str
     content: str = Field(min_length=1, max_length=2000)
     timestamp: datetime
 

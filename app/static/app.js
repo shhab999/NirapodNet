@@ -4,6 +4,32 @@ const messages = document.getElementById("messages");
 const joinButton = document.getElementById("joinButton");
 const errorBanner = document.getElementById("errorBanner");
 
+let sessionToken = localStorage.getItem("nirapodnet_session_token");
+let currentUser = null;
+
+function authHeaders() {
+    return sessionToken
+        ? {
+            "Authorization": `Bearer ${sessionToken}`
+        }
+        : {};
+}
+
+function storeSession(data) {
+    if (!data || !data.token) {
+        return;
+    }
+
+    sessionToken = data.token;
+
+    localStorage.setItem(
+        "nirapodnet_session_token",
+        sessionToken
+    );
+
+    currentUser = data.user || currentUser;
+}
+
 function showError(message) {
     errorBanner.textContent = message;
     errorBanner.style.display = "block";
@@ -14,7 +40,6 @@ function clearError() {
     errorBanner.style.display = "none";
 }
 
-let currentUser = null;
 let socket = null;
 let reconnectTimer = null;
 
@@ -38,7 +63,7 @@ function connectWebSocket() {
         : "ws:";
 
     socket = new WebSocket(
-        `${protocol}//${window.location.host}/ws/${currentUser.id}`
+        `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(sessionToken)}`
     );
 
     const networkStatus = document.getElementById("networkStatus");
@@ -228,7 +253,9 @@ async function loadMessages() {
 
     try {
 
-        const response = await fetch("/messages");
+        const response = await fetch("/messages", {
+            headers: authHeaders()
+        });
 
         if (!response.ok) {
             throw new Error("Failed to load messages");
@@ -365,7 +392,14 @@ async function joinNetwork() {
     throw new Error(message);
         }
 
-        currentUser = await response.json();
+        const data = await response.json();
+
+        if (data.token) {
+            storeSession(data);
+            currentUser = data.user;
+        } else {
+            currentUser = data;
+        }
 
         document.getElementById("userLabel").textContent = `Logged in as ${currentUser.username}`;
 

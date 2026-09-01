@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
-from . import models
-from . import schemas
+from . import models, schemas
+from .security import generate_session_token, hash_password, verify_password
 
 #-----------------
 # users
@@ -17,7 +19,11 @@ def create_user(db: Session, user: schemas.UserCreate):
     if existing:
         return existing
 
-    db_user = models.User(username=user.username)
+    db_user = models.User(
+        username=user.username,
+        password_hash=hash_password(user.password),
+        role="user",
+    )
 
     db.add(db_user)
     db.commit()
@@ -28,6 +34,88 @@ def create_user(db: Session, user: schemas.UserCreate):
 
 def get_users(db: Session):
     return db.query(models.User).all()
+
+
+def authenticate_user(
+    db: Session,
+    username: str,
+    password: str,
+):
+    user = (
+        db.query(models.User)
+        .filter(models.User.username == username)
+        .first()
+    )
+
+    if user is None:
+        return None
+
+    if not verify_password(password, user.password_hash):
+        return None
+
+    return user
+
+
+def create_session(
+    db: Session,
+    user_id: int,
+    expires_at: datetime,
+):
+    token = generate_session_token()
+
+    session = models.UserSession(
+        token=token,
+        user_id=user_id,
+        expires_at=expires_at,
+    )
+
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    return session
+
+
+def get_session_user(
+    db: Session,
+    token: str,
+):
+    session = (
+        db.query(models.UserSession)
+        .filter(models.UserSession.token == token)
+        .first()
+    )
+
+    if session is None:
+        return None
+
+    now = datetime.now(timezone.utc)
+
+    if session.expires_at <= now:
+        db.delete(session)
+        db.commit()
+        return None
+
+    return session.user
+
+
+def delete_session(
+    db: Session,
+    token: str,
+):
+    session = (
+        db.query(models.UserSession)
+        .filter(models.UserSession.token == token)
+        .first()
+    )
+
+    if session is None:
+        return False
+
+    db.delete(session)
+    db.commit()
+
+    return True
 
 #------------------
 #Messages

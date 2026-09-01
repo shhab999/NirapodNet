@@ -4,14 +4,36 @@ from datetime import datetime
 
 class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=8, max_length=128)
 
 
 class UserResponse(BaseModel):
     id: int
     username: str = Field(min_length=3, max_length=50)
+    role: str
 
     class Config:
         from_attributes = True
+
+# -----------------
+# Authentication
+# -----------------
+
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class LoginResponse(BaseModel):
+    token: str
+    user: UserResponse
+    expires_at: datetime
+
 #-----------------
 # Message Schemas
 #-----------------

@@ -50,7 +50,7 @@ class User(Base):
     )
 
     sessions = relationship(
-        "Session",
+        "UserSession",
         back_populates="user",
         cascade="all, delete-orphan",
     )

@@ -89,7 +89,7 @@ def get_session_user(
     if session is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     if session.expires_at <= now:
         db.delete(session)

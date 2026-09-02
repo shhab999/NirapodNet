@@ -14,7 +14,7 @@
 * The second request returns the existing user.
 * No duplicate username is created.
 
-**Result:** TODO
+**Result:** pass
 
 **Notes:**
 
@@ -34,7 +34,7 @@
   * `content`
   * `timestamp`
 
-**Result:** TODO
+**Result:** PASS
 
 **Notes:**
 
@@ -49,7 +49,7 @@
 * Client A is excluded from the broadcast.
 * The message is not duplicated.
 
-**Result:** TODO
+**Result:** PASS
 
 **Notes:**
 
@@ -69,7 +69,7 @@ Open NirapodNet from another device on the same LAN.
 * WebSocket connects.
 * Messages can be exchanged.
 
-**Result:** TODO
+**Result:** PASS
 
 **Notes:**
 
@@ -82,12 +82,12 @@ Open NirapodNet from another device on the same LAN.
 * NirapodNet continues to load.
 * Local messaging continues to work.
 
-**Result:** TODO
+**Result:** PASS
 
 **Notes:**
 
 ## Phase 1 Final Status
 
-**Status:** NOT COMPLETE
+**Status:** COMPLETE
 
 Phase 1 is complete only after the required tests are executed and the observed results are recorded here.

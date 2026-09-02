@@ -1,10 +1,7 @@
 from pathlib import Path
 from fastapi import FastAPI, Request, Depends, Query
 from fastapi.responses import HTMLResponse
-from fastapi.security import (
-    HTTPAuthorizationCredentials,
-    HTTPBearer,
-)
+from fastapi.security import (HTTPAuthorizationCredentials,HTTPBearer,)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -21,15 +18,8 @@ from . import schemas, crud
 from fastapi import WebSocket, WebSocketDisconnect
 from .websocket import manager
 from .database import SessionLocal
-from .models import (
-    Base,
-    User,
-    Message,
-    UserSession,
-    SOSEvent,
-    Broadcast,
-    CheckIn,
-)
+from .models import (Base,User,Message,UserSession,SOSEvent,Broadcast,CheckIn,)
+from .dependencies import ALL_ROLES, require_role, ADMIN_ROLE
 BASE_DIR = Path(__file__).resolve().parent
 
 security = HTTPBearer()
@@ -171,9 +161,128 @@ def get_me(
     return current_user
 
 
-@app.get("/users", response_model=list[schemas.UserResponse])
-def list_users(db: Session = Depends(get_db)):
+@app.get(
+    "/users",
+    response_model=list[schemas.UserResponse],
+)
+def list_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends
+    (require_role("admin")
+     ),
+):
     return crud.get_users(db)
+
+
+@app.get(
+    "/api/admin/users",
+    response_model=list[schemas.UserResponse],
+)
+def list_admin_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(ADMIN_ROLE)),
+):
+    return crud.get_users(db)
+
+
+@app.patch(
+    "/api/admin/users/{user_id}/role",
+    response_model=schemas.UserResponse,
+)
+def update_user_role(
+    user_id: int,
+    role_update: schemas.RoleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(ADMIN_ROLE)),
+):
+    if role_update.role not in ALL_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid role",
+        )
+
+    user = (
+        db.query(User)
+        .filter(User.id == user_id)
+        .first()
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    user.role = role_update.role
+
+    db.commit()
+    db.refresh(user)
+
+    return user
+
+
+@app.get("/api/rbac/user")
+def rbac_user_test(
+    current_user: User = Depends(
+        require_role(
+            "user",
+            "rescue",
+            "operator",
+            "admin",
+        )
+    ),
+):
+    return {
+        "message": "User-level access granted",
+        "user": current_user.username,
+        "role": current_user.role,
+    }
+
+
+@app.get("/api/rbac/rescue")
+def rbac_rescue_test(
+    current_user: User = Depends(
+        require_role(
+            "rescue",
+            "operator",
+            "admin",
+        )
+    ),
+):
+    return {
+        "message": "Rescue-level access granted",
+        "user": current_user.username,
+        "role": current_user.role,
+    }
+
+
+@app.get("/api/rbac/operator")
+def rbac_operator_test(
+    current_user: User = Depends(
+        require_role(
+            "operator",
+            "admin",
+        )
+    ),
+):
+    return {
+        "message": "Operator-level access granted",
+        "user": current_user.username,
+        "role": current_user.role,
+    }
+
+
+@app.get("/api/rbac/admin")
+def rbac_admin_test(
+    current_user: User = Depends(
+        require_role("admin")
+    ),
+):
+    return {
+        "message": "Admin-level access granted",
+        "user": current_user.username,
+        "role": current_user.role,
+    }
 
 
 # -----------------------
@@ -184,7 +293,14 @@ def list_users(db: Session = Depends(get_db)):
 def create_message(
     message: schemas.MessageCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        require_role(
+            "user",
+            "rescue",
+            "operator",
+            "admin",
+        )
+    ),
 ):
     message.sender_id = current_user.id
 

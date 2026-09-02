@@ -15,6 +15,11 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class RoleUpdate(BaseModel):
+    role: str
+
+
 # -----------------
 # Authentication
 # -----------------

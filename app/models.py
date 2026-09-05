@@ -203,6 +203,64 @@ class SOSEvent(Base):
         back_populates="sos_events",
     )
 
+    status_history = relationship(
+        "SOSStatusHistory",
+        back_populates="incident",
+        cascade="all, delete-orphan",
+        order_by="SOSStatusHistory.created_at",
+    )
+
+
+class SOSStatusHistory(Base):
+    __tablename__ = "sos_status_history"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    incident_id = Column(
+        Integer,
+        ForeignKey("sos_events.id"),
+        nullable=False,
+        index=True,
+    )
+
+    old_status = Column(
+        String(20),
+        nullable=True,
+    )
+
+    new_status = Column(
+        String(20),
+        nullable=False,
+    )
+
+    changed_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+    incident = relationship(
+        "SOSEvent",
+        back_populates="status_history",
+    )
+
+    changed_by_user = relationship(
+        "User",
+        foreign_keys=[changed_by],
+    )
+
 
 class Broadcast(Base):
     __tablename__ = "broadcasts"

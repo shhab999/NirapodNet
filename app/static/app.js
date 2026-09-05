@@ -3,6 +3,8 @@ const sendButton = document.getElementById("sendButton");
 const messages = document.getElementById("messages");
 const joinButton = document.getElementById("joinButton");
 const errorBanner = document.getElementById("errorBanner");
+const sosButton = document.getElementById("sosButton");
+const sosStatus = document.getElementById("sosStatus");
 
 let sessionToken = localStorage.getItem("nirapodnet_session_token");
 let currentUser = null;
@@ -38,6 +40,29 @@ function showError(message) {
 function clearError() {
     errorBanner.textContent = "";
     errorBanner.style.display = "none";
+}
+
+function showSOSAlert(data) {
+    const message =
+        `🚨 SOS ${data.incident_id}\n` +
+        `Type: ${data.emergency_type}\n` +
+        `Description: ${data.description || "None"}`;
+
+    showError(message);
+
+    if ("speechSynthesis" in window) {
+        const speech = new SpeechSynthesisUtterance(
+            "Emergency SOS received"
+        );
+
+        window.speechSynthesis.speak(speech);
+    }
+}
+
+function handleSOSStatusUpdate(data) {
+    console.log(
+        `SOS ${data.incident_id} → ${data.status}`
+    );
 }
 
 let socket = null;
@@ -117,6 +142,16 @@ function connectWebSocket() {
         if (data.type === "message") {
 
             addMessage(data);
+            return;
+        }
+
+        if (data.type === "sos") {
+            showSOSAlert(data);
+            return;
+        }
+
+        if (data.type === "sos_status") {
+            handleSOSStatusUpdate(data);
             return;
         }
 
@@ -353,6 +388,62 @@ function sendMessage() {
 
 }
 
+async function sendSOS() {
+    clearError();
+
+    if (!sessionToken) {
+        showError("You must be logged in.");
+        return;
+    }
+
+    sosButton.disabled = true;
+
+    try {
+        const response = await fetch("/api/sos", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({
+                emergency_type: "other",
+                latitude: null,
+                longitude: null,
+                description: "Emergency SOS"
+            })
+        });
+
+        if (!response.ok) {
+            let message = "Failed to send SOS.";
+
+            try {
+                const error = await response.json();
+
+                if (error.detail) {
+                    message = error.detail;
+                }
+            } catch {
+                // Keep default error message.
+            }
+
+            throw new Error(message);
+        }
+
+        const incident = await response.json();
+
+        sosStatus.textContent =
+            `SOS sent: ${incident.incident_id}`;
+
+    } catch (error) {
+        console.error("SOS failed:", error);
+        showError(
+            error.message || "Failed to send SOS."
+        );
+    } finally {
+        sosButton.disabled = false;
+    }
+}
+
 async function joinNetwork() {
     clearError();
 
@@ -424,3 +515,4 @@ input.addEventListener("keydown", event => {
 });
 
 joinButton.addEventListener("click", joinNetwork);
+sosButton.addEventListener("click", sendSOS);

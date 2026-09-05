@@ -7,8 +7,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from datetime import datetime, timedelta, timezone
-from fastapi import HTTPException, status
-
+from fastapi import HTTPException, Query, status
+from .dependencies import require_role
 from .auth import get_current_user
 
 from .database import engine, get_db
@@ -330,6 +330,216 @@ def list_messages(
         }
         for message in messages
     ]
+
+
+@app.post(
+    "/api/sos",
+    response_model=schemas.SOSResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_sos(
+    sos: schemas.SOSCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            "user",
+            "rescue",
+            "operator",
+            "admin",
+        )
+    ),
+):
+    incident = crud.create_sos(
+        db=db,
+        user_id=current_user.id,
+        sos=sos,
+    )
+
+    await broadcast_sos(
+        db,
+        {
+            "type": "sos",
+            "incident_id": incident.incident_id,
+            "user_id": incident.user_id,
+            "emergency_type": incident.emergency_type,
+            "latitude": (
+                float(incident.latitude)
+                if incident.latitude is not None
+                else None
+            ),
+            "longitude": (
+                float(incident.longitude)
+                if incident.longitude is not None
+                else None
+            ),
+            "description": incident.description,
+            "status": incident.status,
+            "created_at": incident.created_at.isoformat(),
+        },
+    )
+
+    return incident
+
+
+@app.get(
+    "/api/sos",
+    response_model=list[schemas.SOSResponse],
+)
+def list_sos(
+    status_filter: str | None = Query(
+        default=None,
+        alias="status",
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            "rescue",
+            "operator",
+            "admin",
+        )
+    ),
+):
+    allowed_statuses = {
+        "OPEN",
+        "RESPONDING",
+        "ON-SCENE",
+        "RESOLVED",
+    }
+
+    if (
+        status_filter is not None
+        and status_filter not in allowed_statuses
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid SOS status",
+        )
+
+    return crud.get_sos_events(
+        db,
+        status_filter=status_filter,
+    )
+
+
+@app.get(
+    "/api/sos/{incident_id}/history",
+    response_model=list[schemas.SOSStatusHistoryResponse],
+)
+def get_sos_history(
+    incident_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            "rescue",
+            "operator",
+            "admin",
+        )
+    ),
+):
+    incident = crud.get_sos_by_incident_id(
+        db,
+        incident_id,
+    )
+
+    if incident is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="SOS incident not found",
+        )
+
+    return crud.get_sos_history(
+        db,
+        incident,
+    )
+
+
+@app.patch(
+    "/api/sos/{incident_id}/status",
+    response_model=schemas.SOSResponse,
+)
+async def update_sos_status(
+    incident_id: str,
+    update: schemas.SOSStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            "rescue",
+            "operator",
+            "admin",
+        )
+    ),
+):
+    incident = crud.get_sos_by_incident_id(
+        db,
+        incident_id,
+    )
+
+    if incident is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="SOS incident not found",
+        )
+
+    updated = crud.update_sos_status(
+        db=db,
+        incident=incident,
+        new_status=update.status,
+        changed_by=current_user.id,
+    )
+
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Invalid SOS status transition",
+        )
+
+    await broadcast_sos(
+        db,
+        {
+            "type": "sos_status",
+            "incident_id": updated.incident_id,
+            "status": updated.status,
+            "changed_by": current_user.id,
+            "timestamp": datetime.now(
+                timezone.utc
+            ).isoformat(),
+        },
+    )
+
+    return updated
+
+
+async def broadcast_sos(
+    db: Session,
+    message: dict,
+):
+    disconnected = []
+
+    for connection, user_id in manager.active_connections.items():
+        recipient = (
+            db.query(User)
+            .filter(User.id == user_id)
+            .first()
+        )
+
+        if recipient is None:
+            continue
+
+        if recipient.role not in {
+            "rescue",
+            "operator",
+            "admin",
+        }:
+            continue
+
+        try:
+            await connection.send_json(message)
+        except Exception:
+            disconnected.append(connection)
+
+    for connection in disconnected:
+        manager.disconnect(connection)
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(

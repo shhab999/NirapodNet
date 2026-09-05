@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Literal
 
 
 class UserCreate(BaseModel):
@@ -56,6 +57,57 @@ class MessageResponse(BaseModel):
     sender: str
     content: str = Field(min_length=1, max_length=2000)
     timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SOSCreate(BaseModel):
+    emergency_type: Literal[
+        "flood",
+        "medical",
+        "fire",
+        "trapped",
+        "other",
+    ]
+
+    latitude: float | None = None
+    longitude: float | None = None
+
+    description: str | None = Field(
+        default=None,
+        max_length=2000,
+    )
+
+
+class SOSStatusUpdate(BaseModel):
+    status: Literal[
+        "RESPONDING",
+        "ON-SCENE",
+        "RESOLVED",
+    ]
+
+
+class SOSStatusHistoryResponse(BaseModel):
+    old_status: str | None
+    new_status: str
+    changed_by: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SOSResponse(BaseModel):
+    id: int
+    incident_id: str
+    user_id: int
+    emergency_type: str
+    latitude: float | None
+    longitude: float | None
+    description: str | None
+    status: str
+    created_at: datetime
 
     class Config:
         from_attributes = True

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import secrets
 
 from sqlalchemy.orm import Session
 
@@ -179,3 +180,158 @@ def get_messages(db: Session):
         }
         for m in messages
     ]
+
+
+SOS_STATUSES = (
+    "OPEN",
+    "RESPONDING",
+    "ON-SCENE",
+    "RESOLVED",
+)
+
+ALLOWED_STATUS_TRANSITIONS = {
+    "OPEN": {"RESPONDING"},
+    "RESPONDING": {"ON-SCENE"},
+    "ON-SCENE": {"RESOLVED"},
+    "RESOLVED": set(),
+}
+
+
+def generate_incident_id(db: Session) -> str:
+    year = datetime.now(timezone.utc).year
+
+    while True:
+        number = secrets.randbelow(100000)
+
+        incident_id = f"INC-{year}-{number:05d}"
+
+        existing = (
+            db.query(models.SOSEvent)
+            .filter(
+                models.SOSEvent.incident_id == incident_id
+            )
+            .first()
+        )
+
+        if existing is None:
+            return incident_id
+
+
+def create_sos(
+    db: Session,
+    user_id: int,
+    sos: schemas.SOSCreate,
+):
+    incident = models.SOSEvent(
+        incident_id=generate_incident_id(db),
+        user_id=user_id,
+        emergency_type=sos.emergency_type,
+        latitude=(
+            str(sos.latitude)
+            if sos.latitude is not None
+            else None
+        ),
+        longitude=(
+            str(sos.longitude)
+            if sos.longitude is not None
+            else None
+        ),
+        description=sos.description,
+        status="OPEN",
+    )
+
+    db.add(incident)
+    db.flush()
+
+    history = models.SOSStatusHistory(
+        incident_id=incident.id,
+        old_status=None,
+        new_status="OPEN",
+        changed_by=user_id,
+    )
+
+    db.add(history)
+
+    db.commit()
+    db.refresh(incident)
+
+    return incident
+
+
+def get_sos_by_incident_id(
+    db: Session,
+    incident_id: str,
+):
+    return (
+        db.query(models.SOSEvent)
+        .filter(
+            models.SOSEvent.incident_id == incident_id
+        )
+        .first()
+    )
+
+
+def update_sos_status(
+    db: Session,
+    incident: models.SOSEvent,
+    new_status: str,
+    changed_by: int,
+):
+    old_status = incident.status
+
+    allowed_next_states = ALLOWED_STATUS_TRANSITIONS.get(
+        old_status,
+        set(),
+    )
+
+    if new_status not in allowed_next_states:
+        return None
+
+    incident.status = new_status
+
+    history = models.SOSStatusHistory(
+        incident_id=incident.id,
+        old_status=old_status,
+        new_status=new_status,
+        changed_by=changed_by,
+    )
+
+    db.add(history)
+    db.commit()
+    db.refresh(incident)
+
+    return incident
+
+
+def get_sos_events(
+    db: Session,
+    status_filter: str | None = None,
+):
+    query = (
+        db.query(models.SOSEvent)
+        .order_by(models.SOSEvent.created_at.asc())
+    )
+
+    if status_filter:
+        query = query.filter(
+            models.SOSEvent.status == status_filter
+        )
+
+    return query.all()
+
+
+def get_sos_history(
+    db: Session,
+    incident: models.SOSEvent,
+):
+    return (
+        db.query(models.SOSStatusHistory)
+        .filter(
+            models.SOSStatusHistory.incident_id
+            == incident.id
+        )
+        .order_by(
+            models.SOSStatusHistory.created_at.asc()
+        )
+        .all()
+    )

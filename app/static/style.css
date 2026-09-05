@@ -109,3 +109,30 @@ button {
 .pending .delivery {
     color: #996500;
 }
+
+.sos-section {
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.sos-button {
+    width: 100%;
+    padding: 18px;
+    font-size: 22px;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    background: #dc2626;
+    color: white;
+}
+
+.sos-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.sos-status {
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: bold;
+}
